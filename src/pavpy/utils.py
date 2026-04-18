@@ -8,6 +8,9 @@ from astroquery.vizier import Vizier
 from dustmaps.bayestar import BayestarQuery, BayestarWebQuery
 from scipy.interpolate import griddata
 import importlib_resources
+from functools import lru_cache
+
+bayestar = BayestarQuery(version='bayestar2019')
 
 def estimate_theta_vk(vmag,kmag):
     # Calculate angular diameter from Boyajian et al. (2014) relation
@@ -15,6 +18,7 @@ def estimate_theta_vk(vmag,kmag):
     
     return np.power(10,logtheta)
 
+@lru_cache(None)
 def get_coords(star):
     # Get galactic coordinates for a given star, assuming it is the brightest object in the search
     v = Vizier(columns=["RA_ICRS","DE_ICRS","Plx","Gmag"], catalog="I/355/gaiadr3")
@@ -25,17 +29,20 @@ def get_coords(star):
                  equinox='J2016').transform_to('galactic')
     return coords
 
-def get_extinction(coords,version='bayestar2015'):
-    # Get E(B-V) for a given galactic coordinate
-    try:
-        bayestar = BayestarWebQuery(version=version)
-        reddening = bayestar(coords, mode='median')
-    except:
-        bayestar = BayestarQuery(version=version)
-        reddening = bayestar(coords, mode='median')
+def get_extinction(coords):
+    return bayestar(coords, mode='median')
+
+# def get_extinction(coords,version='bayestar2019'):
+#     # Get E(B-V) for a given galactic coordinate
+#     try:
+#         bayestar = BayestarWebQuery(version=version)
+#         reddening = bayestar(coords, mode='median')
+#     except:
+    
+#     reddening = bayestar(coords, mode='median')
 
 
-    return reddening
+#     return reddening
     
 def deredden(vmag,kmag,ebv):
     # Calculate dereddened v and k magnitudes assuming O'Donnell (1994) law
@@ -47,6 +54,7 @@ def deredden(vmag,kmag,ebv):
     
     return v,k
 
+@lru_cache(None)
 def get_vkmags(star):
     # Get V and K mags for a given star, and convert Tycho V mag to Johnson V
     v = Vizier(columns=["BTmag","VTmag"], catalog="I/259/tyc2")
