@@ -9,6 +9,10 @@ from dustmaps.bayestar import BayestarQuery, BayestarWebQuery
 from scipy.interpolate import griddata
 import importlib_resources
 from functools import lru_cache
+from astroquery.simbad import Simbad
+from astroquery.gaia import Gaia
+
+
 
 bayestar = BayestarQuery(version='bayestar2019')
 
@@ -20,29 +24,50 @@ def estimate_theta_vk(vmag,kmag):
 
 @lru_cache(None)
 def get_coords(star):
-    # Get galactic coordinates for a given star, assuming it is the brightest object in the search
-    v = Vizier(columns=["RA_ICRS","DE_ICRS","Plx","Gmag"], catalog="I/355/gaiadr3")
-    result = v.query_object(star)
-    coords = SkyCoord(result[0][np.argmin(result[0]['Gmag'])]['RA_ICRS']*units.deg, 
-                  result[0][np.argmin(result[0]['Gmag'])]['DE_ICRS']*units.deg, 
-                  distance=1000/result[0][np.argmin(result[0]['Gmag'])]['Plx']*units.pc,
-                 equinox='J2016').transform_to('galactic')
-    return coords
+    
+    sim = Simbad()
+    sim.add_votable_fields('ids')
+
+    res = sim.query_object(star)
+    if res is None:
+        raise ValueError(f"{star} not found in SIMBAD")
+
+    ids = res['IDS'][0]
+    if isinstance(ids, bytes):
+        ids = ids.decode()
+
+    gaia_id = None
+    for item in ids.split('|'):
+        if "Gaia DR3" in item:
+            gaia_id = item.split()[-1]
+
+    if gaia_id is None:
+        raise ValueError(f"No Gaia DR3 ID for {star}")
+
+    query = f"""
+    SELECT ra, dec, parallax
+    FROM gaiadr3.gaia_source
+    WHERE source_id = {gaia_id}
+    """
+
+    job = Gaia.launch_job(query)
+    tab = job.get_results()
+
+    if len(tab) == 0:
+        raise ValueError(f"Gaia query failed for {star}")
+
+    row = tab[0]
+
+    return SkyCoord(
+        ra=row["ra"] * units.deg,
+        dec=row["dec"] * units.deg,
+        distance=(1000.0 / row["parallax"]) * units.pc,
+        frame="icrs"
+    ).transform_to("galactic")
 
 def get_extinction(coords):
     return bayestar(coords, mode='median')
 
-# def get_extinction(coords,version='bayestar2019'):
-#     # Get E(B-V) for a given galactic coordinate
-#     try:
-#         bayestar = BayestarWebQuery(version=version)
-#         reddening = bayestar(coords, mode='median')
-#     except:
-    
-#     reddening = bayestar(coords, mode='median')
-
-
-#     return reddening
     
 def deredden(vmag,kmag,ebv):
     # Calculate dereddened v and k magnitudes assuming O'Donnell (1994) law
@@ -57,19 +82,32 @@ def deredden(vmag,kmag,ebv):
 @lru_cache(None)
 def get_vkmags(star):
     # Get V and K mags for a given star, and convert Tycho V mag to Johnson V
-    v = Vizier(columns=["BTmag","VTmag"], catalog="I/259/tyc2")
-    result = v.query_object(star)
-    bt_minus_vt = result[0]['BTmag'][0]-result[0]['VTmag'][0]
+    try:
+        v = Vizier(columns=["BTmag","VTmag"], catalog="I/259/tyc2")
+        result = v.query_object(star)
+        bt_minus_vt = result[0]['BTmag'][0]-result[0]['VTmag'][0]
+        
+        tycho = pd.read_fwf(importlib_resources.files('pavpy') / 'Tycho_BV_Bessel2000.dat',skiprows=2, names=['BtVt','VVt','dBV','VHp'])
+        
+        vmag = np.interp(bt_minus_vt, tycho.BtVt, tycho.VVt) + result[0]['VTmag'][0]
     
-    tycho = pd.read_fwf(importlib_resources.files('pavpy') / 'Tycho_BV_Bessel2000.dat',skiprows=2, names=['BtVt','VVt','dBV','VHp'])
+    except:    
+        sim = Simbad()
+        sim.add_votable_fields('flux(V)')
+        vmag = sim.query_object(star)['FLUX_V'].value[0]
+        
+    try:
     
-    vmag = np.interp(bt_minus_vt, tycho.BtVt, tycho.VVt) + result[0]['VTmag'][0]
+        v = Vizier(columns=["Kmag"], catalog="II/246/out")
+        result = v.query_object(star)
+        
+        kmag = np.min(result[0]['Kmag'])
     
-    v = Vizier(columns=["Kmag"], catalog="II/246/out")
-    result = v.query_object(star)
-    
-    kmag = np.min(result[0]['Kmag'])
-    
+    except:
+        sim = Simbad()
+        sim.add_votable_fields('flux(K)')
+        kmag = sim.query_object(star)['FLUX_K'].value[0]
+
     return vmag,kmag
 
 def get_uv(df):
