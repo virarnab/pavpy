@@ -24,7 +24,8 @@ def estimate_theta_vk(vmag,kmag):
 
 @lru_cache(None)
 def get_coords(star):
-    
+    if star.endswith("150680"):
+        star = "Gaia DR3 1312665361415345920"
     sim = Simbad()
     sim.add_votable_fields('ids')
 
@@ -36,10 +37,15 @@ def get_coords(star):
     if isinstance(ids, bytes):
         ids = ids.decode()
 
-    gaia_id = None
+    gaia_id2 = None
+    gaia_id3 = None
     for item in ids.split('|'):
         if "Gaia DR3" in item:
-            gaia_id = item.split()[-1]
+            gaia_id3 = item.split()[-1]
+        elif "Gaia DR2" in item:
+            gaia_id2 = item.split()[-1]
+            
+    gaia_id = gaia_id3 if gaia_id3 is not None else gaia_id2
 
     if gaia_id is None:
         raise ValueError(f"No Gaia DR3 ID for {star}")
@@ -81,6 +87,8 @@ def deredden(vmag,kmag,ebv):
 
 @lru_cache(None)
 def get_vkmags(star):
+    if star.endswith("150680"):
+        star = "Gaia DR3 1312665361415345920"
     # Get V and K mags for a given star, and convert Tycho V mag to Johnson V
     try:
         v = Vizier(columns=["BTmag","VTmag"], catalog="I/259/tyc2")
