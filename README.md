@@ -1,4 +1,3 @@
-# pavpy
-[![Licence](http://img.shields.io/badge/license-GPLv3-blue.svg?style=flat)](http://www.gnu.org/licenses/gpl-3.0.html)
-
-A package for analysing PAVO observations in Python
+# Forked from https://github.com/hvidy/pavpy/
+- Fine-tuning done for my stars to query quickly.
+- Loaded and saved dustmaps (2019 version). 
