@@ -30,9 +30,7 @@ def ld_power2(x, theta, c, a):
     radtheta = theta*4.8481368e-9
     z = np.pi * radtheta * x
     eps = 1e-25
-    num = c * sp.gamma(nu + 1) * sp.jv(nu, x) / (x / 2) ** nu + (1 - c) * sp.jv(1, x) / (x / 2)
-    den = c * sp.gamma(nu + 1) * sp.jv(nu, eps) / (eps / 2) ** nu + (1 - c) * sp.jv(1, eps) / (eps / 2)
-    vis = (num / den) ** 2
+    vis = c * sp.gamma(nu + 1) * sp.jv(nu, x) / (x / 2) ** nu + (1 - c) * sp.jv(1, x) / (x / 2)
     return vis ** 2
 
 
