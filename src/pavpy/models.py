@@ -25,6 +25,16 @@ def ldd_claret4(x,theta,a1,a2,a3,a4):
 
     return (vis/c)**2
 
+def ld_power2(x, theta, c, a):
+    nu = a / 2 + 1
+    radtheta = theta*4.8481368e-9
+    z = np.pi * radtheta * x
+    eps = 1e-25
+    num = c * sp.gamma(nu + 1) * sp.jv(nu, x) / (x / 2) ** nu + (1 - c) * sp.jv(1, x) / (x / 2)
+    den = c * sp.gamma(nu + 1) * sp.jv(nu, eps) / (eps / 2) ** nu + (1 - c) * sp.jv(1, eps) / (eps / 2)
+    vis = (num / den) ** 2
+    return vis ** 2
+
 
 def ellipse(x,a,b,phi):
     return np.sqrt(2)*a*b/np.sqrt((b**2-a**2)*np.cos(2*x-2*phi)+a**2+b**2)
