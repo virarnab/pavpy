@@ -29,9 +29,11 @@ def ld_power2(x, theta, c, a):
     nu = a / 2 + 1
     radtheta = theta*4.8481368e-9
     z = np.pi * radtheta * x
-    eps = 1e-25
-    vis = c * sp.gamma(nu + 1) * sp.jv(nu, x) / (x / 2) ** nu + (1 - c) * sp.jv(1, x) / (x / 2)
-    return vis ** 2
+
+    num = (c / (2 * nu)) * sp.gamma(nu + 1) * sp.jv(nu, z) / (z / 2) ** nu + (1 - c) * sp.jv(1, z) / z
+    den = (1 - c) / 2 + c / (2 * nu)
+    vis = (num / den) ** 2
+    return vis
 
 
 def ellipse(x,a,b,phi):
